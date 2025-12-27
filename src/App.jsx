@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import GameGrid from './components/GameGrid';
+import HomeScreen from './components/HomeScreen';
 import { generateBaseColor, generateRegularPolygon, distortPolygon, getGridSize } from './utils/gameLogic';
 import { ensureSndLoaded, uiSfx } from './utils/snd';
 
@@ -19,6 +20,7 @@ function readNumber(key, fallback = 0) {
 
 function App() {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasEverPlayed, setHasEverPlayed] = useState(false);
   const [level, setLevel] = useState(1);
   const [score, setScore] = useState(0);
   const [attempts, setAttempts] = useState(0);
@@ -189,6 +191,7 @@ function App() {
     endTimeRef.current = Date.now() + TOTAL_TIME_MS;
     setTimeLeft(TOTAL_TIME_SECONDS);
     setIsPlaying(true);
+    setHasEverPlayed(true);
     generateLevel(1);
   };
 
@@ -284,9 +287,11 @@ function App() {
     };
   }, [isPlaying, timeLeft]);
 
+  const showHome = !isPlaying && !hasEverPlayed;
+
   return (
-    <div className={`app-shell ${shake ? 'shake' : ''} ${slowMo ? 'slowmo' : ''}`}>
-      <header className="hud">
+    <div className={`app-shell ${showHome ? 'home-mode' : ''} ${shake ? 'shake' : ''} ${slowMo ? 'slowmo' : ''}`}>
+      <header className={`hud ${showHome ? 'hud-hidden' : ''}`} aria-hidden={showHome}>
         <div className="hud-title">WarpSpot</div>
 
         <div className="stats-bar hud-stats" aria-label="game stats">
@@ -319,6 +324,8 @@ function App() {
             inputLocked={inputLocked}
             roundId={gridData.roundId}
           />
+        ) : showHome ? (
+          <HomeScreen onStart={startGame} bestLevel={bestLevel} bestScore={bestScore} totalTimeSeconds={TOTAL_TIME_SECONDS} />
         ) : (
           <div className="menu-overlay fade-in">
             {(runSummary || score > 0) && <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Level Reached</h2>}
