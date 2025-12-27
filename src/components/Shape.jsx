@@ -1,36 +1,71 @@
-import React from 'react';
+import { useRef, useState } from 'react';
+import { uiSfx } from '../utils/snd';
 
-const Shape = ({ color, pointsStr, onClick, isTarget }) => {
-    const style = {
-        backgroundColor: color,
-        clipPath: pointsStr,
-        width: '100%',
-        height: '100%',
-        cursor: 'pointer',
-        transition: 'transform 0.1s ease',
-        // Removed box-shadow as it doesn't work well with clip-path on the element itself usually, 
-        // but filter: drop-shadow works better for clipped shapes.
-        filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))',
+const Shape = ({ color, hoverBg, pointsStr, onClick, feedbackState = 'none', disabled = false, revealDelayMs = 0 }) => {
+    const [pressed, setPressed] = useState(false);
+    const activePointerIdRef = useRef(null);
+
+    const handlePointerDown = (e) => {
+        if (disabled) return;
+        // Only track a single active pointer to avoid multi-touch conflicts.
+        if (activePointerIdRef.current != null) return;
+        activePointerIdRef.current = e.pointerId;
+        setPressed(true);
+        try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+            // ignore
+        }
+    };
+
+    const endPress = () => {
+        activePointerIdRef.current = null;
+        setPressed(false);
+    };
+
+    const handlePointerUp = (e) => {
+        if (disabled) return;
+        if (activePointerIdRef.current !== e.pointerId) return;
+        endPress();
+        onClick?.();
+    };
+
+    const handlePointerCancel = (e) => {
+        if (activePointerIdRef.current !== e.pointerId) return;
+        endPress();
     };
 
     return (
-        <div
-            className="shape-wrapper"
-            onClick={onClick}
+        <button
+            type="button"
+            className={`shape-btn ${pressed ? 'shape-pressed' : ''} ${feedbackState !== 'none' ? `shape-${feedbackState}` : ''}`}
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
+            onPointerEnter={(e) => {
+                if (disabled) return;
+                if (e.pointerType === 'mouse') uiSfx.tap({ volume: 0.45 });
+            }}
+            onPointerLeave={() => {
+                // If pointer capture isn't supported, ensure we don't get stuck pressed.
+                if (activePointerIdRef.current == null) setPressed(false);
+            }}
+            onBlur={() => setPressed(false)}
+            disabled={disabled}
+            aria-label="shape"
             style={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                '--hover-bg': hoverBg,
+                '--reveal-delay': `${revealDelayMs}ms`,
             }}
         >
             <div
-                style={style}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                className="shape"
+                style={{
+                    backgroundColor: color,
+                    clipPath: pointsStr,
+                }}
             />
-        </div>
+        </button>
     );
 };
 
